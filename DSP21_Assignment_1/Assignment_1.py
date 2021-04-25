@@ -79,7 +79,7 @@ def quanmat(M):
     for i in range(0, Q.shape[0]):
         for j in range(0, Q.shape[1]):
             M_quant[i*f: (i+1)*f, j*f: (j+1)*f] /= Q[i,j] 
-    return np.around(M_quant)
+    return np.round(M_quant)
 
 def dequanmat(M):
     M_dequant = M
@@ -93,15 +93,15 @@ def dequanmat(M):
 from Utility import blockproc
 
 img_y = img_ycbcr[...,0]
-imshow(img_y, mode='P') 
+#imshow(img_y, mode='P') 
 
 img_y_dct = blockproc(img_y, [w, w], dct2)
-imshow(img_y_dct, mode='P') 
+#imshow(img_y_dct, mode='P') 
 #img_y_dct_idct = blockproc(img_y_dct, [w, w], idct2)
 #print(np.linalg.norm(img_y - img_y_dct_idct))
 
 img_y_dct_q = blockproc(img_y_dct, [w, w], quanmat)
-imshow(img_y_dct_q, mode='P') 
+#imshow(img_y_dct_q, mode='P') 
 #img_y_dct_q_dq = blockproc(img_y_dct_q, [8, 8], dequanmat) 
 #print(np.linalg.norm(img_y_dct - img_y_dct_q_dq))
 
@@ -113,23 +113,53 @@ img_y_dct_q_idct = 255 * (img_y_dct_q_idct - img_y_dct_q_idct.min()) /img_y_dct_
 stacked = np.hstack((img_y, img_y_dct_q_idct, img_y - img_y_dct_q_idct))
 imshow(stacked, mode='P') 
 
-'''
 img_cb_d = downsample(img_ycbcr[...,1], w)
-img_cb_d_dct = blockproc(img_cb_d, [8, 8], dct2)
+img_cb_d_dct = blockproc(img_cb_d, [w, w], dct2)
+img_cb_d_dct_q = blockproc(img_cb_d_dct, [w, w], quanmat)
 
 img_cr_d = downsample(img_ycbcr[...,2], w)
-img_cr_d_dct = blockproc(img_cr_d, [8, 8], dct2)
-'''
+img_cr_d_dct = blockproc(img_cr_d, [w, w], dct2)
+img_cr_d_dct_q = blockproc(img_cr_d_dct, [w, w], quanmat)
 
-def encodemat():
-    from dahuffman import HuffmanCodec
-    codec = HuffmanCodec.from_data('hello world how are you doing today foo bar lorem ipsum')
-    codec.encode('do lo er ad od')
-    return codec
+# 2.6
+from dahuffman import HuffmanCodec
+
+def encodemat(data):
+    data = data.flatten().tolist()
+    codec = HuffmanCodec.from_data(data)
+    encoded = codec.encode(data)
+    return encoded, codec
 
 def decodemat(codec, encoded):
     decoded = codec.decode(encoded)
-    return decoded
+    return np.array(decoded)
 
+img_y_dct_q_en, y_codec = encodemat(img_y_dct_q)
+img_cb_d_dct_q_en, cb_codec = encodemat(img_cb_d_dct_q)
+img_cr_d_dct_q_en, cr_codec = encodemat(img_cr_d_dct_q)
 
-img_y_dct_q_dq = img_y_dct_q#blockproc(img_y_dct_q, [8, 8], dequanmat) 
+# 2.7
+img_y_dct_q_en_de = decodemat(y_codec, img_y_dct_q_en)
+img_y_dct_q_en_de = np.reshape(img_y_dct_q_en_de, img_y_dct_q.shape)
+img_y_dct_q_en_de_dq = blockproc(img_y_dct_q_en_de, [w, w], dequanmat) 
+img_y_dct_q_en_de_dq_idct = blockproc(img_y_dct_q_en_de_dq, [w, w], idct2)
+#print(np.linalg.norm(img_y - img_y_dct_q_en_de_dq_idct))
+
+img_cb_d_dct_q_en_de = decodemat(cb_codec, img_cb_d_dct_q_en)
+img_cb_d_dct_q_en_de = np.reshape(img_cb_d_dct_q_en_de, img_cb_d_dct_q.shape)
+img_cb_d_dct_q_en_de_dq = blockproc(img_cb_d_dct_q_en_de, [w, w], dequanmat) 
+img_cb_d_dct_q_en_de_dq_idct = blockproc(img_cb_d_dct_q_en_de_dq, [w, w], idct2)
+img_cb_d_dct_q_en_de_dq_idct_u = upsample(img_cb_d_dct_q_en_de_dq_idct, w)
+
+img_cr_d_dct_q_en_de = decodemat(cr_codec, img_cr_d_dct_q_en)
+img_cr_d_dct_q_en_de = np.reshape(img_cr_d_dct_q_en_de, img_cr_d_dct_q.shape)
+img_cr_d_dct_q_en_de_dq = blockproc(img_cr_d_dct_q_en_de, [w, w], dequanmat) 
+img_cr_d_dct_q_en_de_dq_idct = blockproc(img_cr_d_dct_q_en_de_dq, [w, w], idct2)
+img_cr_d_dct_q_en_de_dq_idct_u = upsample(img_cr_d_dct_q_en_de_dq_idct, w)
+
+img_recon_ycbcr = np.dstack((img_y_dct_q_en_de_dq_idct, img_cb_d_dct_q_en_de_dq_idct_u, img_cr_d_dct_q_en_de_dq_idct_u)) 
+img_recon_rgb = ycbcr2rgb(img_recon_ycbcr)
+stacked = np.hstack((img_rgb, img_recon_rgb, img_rgb - img_recon_rgb))
+imshow(stacked, mode='RGB') 
+#stacked = np.hstack((img_cr_d, img_cr_d_dct_q_en_de_dq_idct, img_cr_d - img_cr_d_dct_q_en_de_dq_idct))
+#imshow(stacked, mode='P') 
