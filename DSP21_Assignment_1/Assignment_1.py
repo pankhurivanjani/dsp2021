@@ -8,7 +8,6 @@ vec1 = np.array([0, 127.5, 127.5])
 mat1 = np.array([[0.299, 0.587, 0.114], [-0.168736, -0.331264, 0.5], [0.5, -0.418688, -0.081312]])
 
 def imshow(img, mode='YCbCr'): # img - PIL image object
-    '''
     img = img.astype('uint8')
     img = Image.fromarray(img, mode=mode)
     img.show()
@@ -17,6 +16,7 @@ def imshow(img, mode='YCbCr'): # img - PIL image object
     plt.imshow(img,cmap='gray')
     plt.xticks([]),plt.yticks([])
     plt.show()
+    '''
 
 def rgb2ycbcr(rgb):
     ycbcr = vec1 + rgb.dot(mat1.T) 
@@ -61,27 +61,10 @@ print(img_ycbcr_u.shape)
 from scipy.fft import dct, idct
 
 def dct2(arr):
-    #pdb.set_trace()
-    out1 = dct(dct(arr, axis=0, norm='ortho'), axis=1, norm='ortho')
-    '''x, y = arr.shape
-    out = np.zeros((x,y))
-    for i in range(0, x):
-        out[i] = dct(arr[i], norm='ortho')
-    for j in range(0, y):
-        out[:,j] = dct(out[:, j], norm='ortho')
-    #print(out1-out)
-    '''
-    return out1
+    return dct(dct(arr, axis=0, norm='ortho'), axis=1, norm='ortho')
 
 def idct2(arr):
-    out2 = idct(idct(arr, axis=0, norm='ortho'), axis=1, norm='ortho')
-    '''x, y = arr.shape
-    out = np.zeros((x,y))
-    for i in range(0, x):
-        out[i] = idct(arr[i], norm='ortho')
-    for j in range(0, y):
-        out[:,j] = idct(out[:, j], norm='ortho')'''
-    return out2
+    return idct(idct(arr, axis=0, norm='ortho'), axis=1, norm='ortho')
 
 # 2.4 
 
@@ -90,105 +73,44 @@ Q = np.array([[8, 19, 26, 29],
             [22, 27, 32, 40],
             [26, 29, 38, 56]])
 
-'''
-Q = np.array([[10, 15, 25, 37, 51, 66, 82, 100],
-            [15, 19, 28, 39, 52, 67, 83, 101],
-            [25, 28, 35, 45, 58, 72, 88, 105],
-            [37, 39, 45, 54, 66, 79, 94, 111],
-            [51, 52, 58, 66, 76, 89, 103, 119],
-            [66, 67, 72, 79, 89, 101, 114, 130],
-            [82, 83, 88, 94, 103, 114, 127, 142],
-            [100, 101, 105, 111, 119, 130, 142, 156]])
-'''
-'''
-Q = np.array([[80,60,50,80,120,200,255,255],
-            [55,60,70,95,130,255,255,255],
-            [70,65,80,120,200,255,255,255],
-            [70,85,110,145,255,255,255,255],
-            [90,110,185,255,255,255,255,255],
-            [120,175,255,255,255,255,255,255],
-            [245,255,255,255,255,255,255,255],
-            [255,255,255,255,255,255,255,255]])
-
-'''
 def quanmat(M):
-    #pdb.set_trace()
-    x, y = M.shape
-    out = np.zeros((x,y))
+    M_quant = M
     f = M.shape[0] // Q.shape[0]
     for i in range(0, Q.shape[0]):
         for j in range(0, Q.shape[1]):
-            out[i*f: (i+1)*f, j*f: (j+1)*f] =  M[i*f:(i+1)*f, j*f:(j+1)*f] / Q[i,j] 
-    #pdb.set_trace()
-    return out
-'''
-def quanmat(M):
-    #pdb.set_trace()
-    #x, y = M.shape
-    #out = np.zeros((x,y))
-    #f = M.shape[0] // Q.shape[0]
-    #pdb.set_trace()
-    myout = np.around(M / Q)
-    return myout
-'''
-def dequanmat(M):
-    x, y = M.shape
-    out = np.zeros((x,y))
-    f = M.shape[0] // Q.shape[0]
-    #f = 8
-    for i in range(0, Q.shape[0]):
-        for j in range(0, Q.shape[1]):
-            out[i*f: (i+1)*f, j*f: (j+1)*f] =  M[i*f:(i+1)*f, j*f:(j+1)*f] * Q[i,j] 
-    return out
-'''
+            M_quant[i*f: (i+1)*f, j*f: (j+1)*f] /= Q[i,j] 
+    return np.around(M_quant)
 
 def dequanmat(M):
-    out = M * Q
-    return out
-'''
+    M_dequant = M
+    f = M.shape[0] // Q.shape[0]
+    for i in range(0, Q.shape[0]):
+        for j in range(0, Q.shape[1]):
+            M_dequant[i*f: (i+1)*f, j*f: (j+1)*f] *= Q[i,j] 
+    return M_dequant
 
 # 2.5
 from Utility import blockproc
 
 img_y = img_ycbcr[...,0]
-print(img_y)
-#imshow(img_y, mode='P') 
-img_y = np.float32(img_y)
-#img_y =  img_y - 128.
-#img_y_dct = blockproc(img_y, [8, 8], dct2)
-img_y_dct = np.zeros(img_y.shape)
+imshow(img_y, mode='P') 
 
-# Do 8x8 DCT on image (in-place)
-for i in np.r_[:img_y.shape[0]:8]:
-    for j in np.r_[:img_y.shape[1]:8]:
-        img_y_dct[i:(i+8),j:(j+8)] = dct2( img_y[i:(i+8),j:(j+8)] )
-
-#pdb.set_trace()
+img_y_dct = blockproc(img_y, [w, w], dct2)
 imshow(img_y_dct, mode='P') 
-img_y_dct_idct = blockproc(img_y_dct, [8, 8], idct2)
-print(np.linalg.norm(img_y - img_y_dct_idct))
+#img_y_dct_idct = blockproc(img_y_dct, [w, w], idct2)
+#print(np.linalg.norm(img_y - img_y_dct_idct))
 
-#pdb.set_trace()
-img_y_dct_q = blockproc(img_y_dct, [8, 8], quanmat)
-#imshow(img_y_dct_q, mode='P') 
-
-img_y_dct_q_dq = img_y_dct_q#blockproc(img_y_dct_q, [8, 8], dequanmat) #img_y_dct_q#
+img_y_dct_q = blockproc(img_y_dct, [w, w], quanmat)
+imshow(img_y_dct_q, mode='P') 
+#img_y_dct_q_dq = blockproc(img_y_dct_q, [8, 8], dequanmat) 
 #print(np.linalg.norm(img_y_dct - img_y_dct_q_dq))
 
-img_y_dct_q_dq_idct = blockproc(img_y_dct_q_dq, [8, 8], idct2)
-#pdb.set_trace()
-#imshow(img_y_dct_q_dq_idct, mode='P') 
-print(np.linalg.norm(img_y - img_y_dct_q_dq_idct))
-#img_y = img_y + 128
-#img_y_dct_q_dq_idct =  img_y_dct_q_dq_idct + 128
-#pdb.set_trace()
-#img_y_dct_q_dq_idct *= 255.0/image.max()img_y_dct_q_dq_idct
-img_y_dct_q_dq_idct = 255 * (img_y_dct_q_dq_idct - img_y_dct_q_dq_idct.min()) /img_y_dct_q_dq_idct.max()
-print(np.linalg.norm(img_y - img_y_dct_q_dq_idct))
-pdb.set_trace()
-imshow(img_y_dct_q_dq_idct, mode='P') 
+img_y_dct_q_idct = blockproc(img_y_dct_q, [w, w], idct2)
+img_y_dct_q_idct = 255 * (img_y_dct_q_idct - img_y_dct_q_idct.min()) /img_y_dct_q_idct.max()
+#imshow(img_y_dct_q_idct, mode='P') 
+#print(np.linalg.norm(img_y - img_y_dct_q_idct))
 
-stacked = np.hstack((img_y, img_y_dct_q_dq_idct, img_y - img_y_dct_q_dq_idct))
+stacked = np.hstack((img_y, img_y_dct_q_idct, img_y - img_y_dct_q_idct))
 imshow(stacked, mode='P') 
 
 '''
@@ -210,3 +132,4 @@ def decodemat(codec, encoded):
     return decoded
 
 
+img_y_dct_q_dq = img_y_dct_q#blockproc(img_y_dct_q, [8, 8], dequanmat) 
