@@ -74,17 +74,14 @@ def gaussfilter_sep(I1, K):
     return I2
     '''
     pdb.set_trace()
-    img = I1
-    kSize = K.size
-    kernel = K
-    gausX = np.zeros((img.shape[0], img.shape[1] - kSize + 1))
-    for i, v in enumerate(kernel):
-    #for i, v in enumerate(kernel[0]):
-        gausX += v * img[:, i : img.shape[1] - kSize + i + 1]
-    gausY = np.zeros((gausX.shape[0] - kSize + 1, gausX.shape[1]))
-    #for i, v in enumerate(kernel[:,0]):
-    for i, v in enumerate(kernel):
-        gausY += v * gausX[i : img.shape[0]  - kSize + i + 1]
+    n, m = I1.shape
+    h = K.size
+    gausX = np.zeros((n, m-h+1))
+    for i, v in enumerate(K):
+        gausX += v * I1[:, i:m-h+i+1]
+    gausY = np.zeros((gausX.shape[0]-h+1, gausX.shape[1]))
+    for i, v in enumerate(K):
+        gausY += v * gausX[i:n-h+i+1]
     pdb.set_trace()
     return gausY
 
