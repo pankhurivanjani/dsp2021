@@ -25,7 +25,7 @@ def gaussfilter(I1, K):
     h, _ = K.shape
     n, m = I1.shape
    
-    I2 = np.empty_like(I1)
+    I2 = np.empty(I1.shape)
     I1 = imgmirror(I1, h)
     for x in range(n):
         for y in range(m):
@@ -36,14 +36,14 @@ def gaussfilter(I1, K):
 from matplotlib import pyplot as plt
 
 def gausskern(sigma):
-    ax = np.linspace(-2., 2., 5) #5x5 kernel
+    ax = np.linspace(-2., 2., 5) 
     xx, yy = np.meshgrid(ax, ax)
     kernel = np.exp(-0.5 * (np.square(xx) + np.square(yy)) / np.square(sigma))
-    return kernel / np.sum(kernel)
+    return kernel / np.sum(kernel) # kernel length - 5x5
 
 I1 = plt.imread('noisycoke.jpg')
 
-sigmas = [1]#[0.25, 0.5, 1, 2, 4]
+sigmas = [0.25, 0.5, 1, 2, 4]
 denoised_imgs = []
 
 for sig in sigmas:
@@ -57,48 +57,32 @@ plt.savefig('denoisedcoke.jpg')
 
 # 1.4
 def gaussfilter_sep(I1, K):
-    '''
-    h = K.size
     n, m = I1.shape
-    
-    pdb.set_trace()
-    I2x = np.empty([n, 5])
-    I2y = np.empty([5, m])
+    h = K.size
     I1 = imgmirror(I1, h)
 
-    Kx = np.broadcast_to()
-    for x in range(n):
-        I2x[x,:] = (I1[x:x+h,:] * K)
-    for y in range(m):
-        I2y[:,y] = I1[:,y:y+h] * K         
-    return I2
-    '''
-    pdb.set_trace()
-    n, m = I1.shape
-    h = K.size
-    gausX = np.zeros((n, m-h+1))
+    gausX = np.zeros((n+h-1, m))
     for i, v in enumerate(K):
-        gausX += v * I1[:, i:m-h+i+1]
-    gausY = np.zeros((gausX.shape[0]-h+1, gausX.shape[1]))
+        gausX += v * I1[:, i:m+i]
+    gausY = np.zeros((n, m))
     for i, v in enumerate(K):
-        gausY += v * gausX[i:n-h+i+1]
-    pdb.set_trace()
+        gausY += v * gausX[i:n+i]
     return gausY
 
 def gausskern_sep(sigma):
-    ax = np.linspace(-2., 2., 5) #5 kernel
-    kernel = np.exp(-0.5 * np.square(ax) / np.square(sigma))
+    ax = np.linspace(-2., 2., 5) 
+    kernel = np.exp(-0.5 * np.square(ax) / np.square(sigma)) # kernel length - 5
     return kernel / np.sum(kernel)
 
-sigmas = [1]#[0.25, 0.5, 1, 2, 4]
-denoised_imgs = []
+sigmas = [0.25, 0.5, 1, 2, 4]
+denoised_imgs_sep = []
 
 for sig in sigmas:
     K = gausskern_sep(sig)
     I2 = gaussfilter_sep(I1, K)
-    denoised_imgs.append(I2)
+    denoised_imgs_sep.append(I2)
 
-denoised_imgs = np.hstack(denoised_imgs)
-plt.imshow(denoised_imgs, cmap='gray')
-pdb.set_trace()
+denoised_imgs_sep = np.hstack(denoised_imgs_sep)
+print(np.linalg.norm(denoised_imgs-denoised_imgs_sep))
+plt.imshow(denoised_imgs_sep, cmap='gray')
 plt.savefig('denoisedcoke_sep.jpg')
