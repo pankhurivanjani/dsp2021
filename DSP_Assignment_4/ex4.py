@@ -45,4 +45,38 @@ plt.show()
 #print(np.linalg.norm(corr_manual - corr_auto), np.linalg.norm(lag_manual - lag_auto))
 
 # 2.2
+from scipy.linalg import solve_toeplitz, toeplitz
 
+def sml_phi(signal, order):
+    smlmatrix = np.zeros((order))
+    for i in range(1, order+1):   #matrix of size order          
+        samples_sum = 0
+        for k in range(len(signal)):
+            samples_sum += signal[k-i] * signal[k]
+        smlmatrix[i-1]+= samples_sum    
+    return smlmatrix
+
+def cap_phi(signal, order):
+    capmatrix = np.zeros((order,order))
+    for i in range(1, order+1): #matrix of size order*order
+        for j in range(1, order+1):
+            samples_sum = 0
+            for k in range(len(signal)):
+                samples_sum += signal[k-i] * signal[k-j]
+            capmatrix[i-1,j-1]+= samples_sum
+    return capmatrix   
+
+def levinson_durbin(corr, order):
+    a_coeff = solve_toeplitz((corr[:order], corr[:order]), corr[1:order+1])
+    return a_coeff
+
+def solve_coef(signal, order): 
+    capmatrix = cap_phi(signal, order)
+    smlmatrix = sml_phi(signal, order)
+    a = np.linalg.solve(capmatrix, smlmatrix)
+    return a  
+
+a_coeff = levinson_durbin(corr_manual[maxlags:], maxlags)
+print(a_coeff)
+dsp_lpc = solve_coef(dsp_recording, maxlags) 
+print(np.linalg.norm(dsp_lpc - a_coeff))
