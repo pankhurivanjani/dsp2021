@@ -9,11 +9,12 @@ def gen_next_pos_vel(px, py, vx, vy, ay, dt):
     vy = vy + ay * dt
     return px, py, vx, vy
 
-def add_noise(px, py, vx, vy, mu, var_eta, var_gamma):
-    px += np.random.normal(mu, var_eta)
-    py += np.random.normal(mu, var_eta)
-    vx += np.random.normal(mu, var_gamma)
-    vy += np.random.normal(mu, var_gamma)
+def add_noise(px, py, vx, vy, mu, var):
+    std = math.sqrt(var)
+    px += np.random.normal(mu, std)
+    py += np.random.normal(mu, std)
+    vx += np.random.normal(mu, std)
+    vy += np.random.normal(mu, std)
     return px, py, vx, vy 
 
 ay = -3.7
@@ -34,6 +35,7 @@ vy = v * math.sin(math.pi * alpha / 180)
 gt_model = [[px, py, vx, vy]]
 for i in range(N):
     px, py, vx, vy = gen_next_pos_vel(px, py, vx, vy, ay, dt)
+    px, py, vx, vy = add_noise(px, py, vx, vy, mu, var_gamma)
     gt_model.append([px, py, vx, vy])
 
 gt_model = np.array(gt_model)
@@ -60,3 +62,4 @@ plt.ylabel("Y Velocity (m)")
 plt.xlabel("time (sec)")
 
 plt.show()
+
