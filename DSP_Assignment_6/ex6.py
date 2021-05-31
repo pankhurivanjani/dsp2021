@@ -67,11 +67,11 @@ states_optimal = [[px, py, vx, vy]]
 
 A = np.array([[1, dt, 0, 0], [0, 1, 0, 0], [0, 0, 1, dt], [0, 0, 0, 1]])
 b = np.array([0, 0, 0.5 * (dt**2), ay * dt])
-std_gamma = math.sqrt(var_gamma)
+#std_gamma = math.sqrt(var_gamma)
 #gamma = np.diag([np.random.normal(mu, std_gamma), np.random.normal(mu, std_gamma), np.random.normal(mu, std_gamma), np.random.normal(mu, std_gamma)])
 gamma = np.identity(4) * var_gamma
 C = np.eye(4)
-std_eta = math.sqrt(var_eta)
+#std_eta = math.sqrt(var_eta)
 #sigma = np.diag([np.random.normal(mu, std_eta), np.random.normal(mu, std_eta), np.random.normal(mu, std_eta), np.random.normal(mu, std_eta)])
 sigma = np.identity(4) * var_eta
 V = np.zeros((4, 4))
@@ -79,46 +79,50 @@ mu = np.array([px, py, vx, vy])
 
 #TODO merge measurement, optimal and gt to single loop
 for i in range(N):
-    pdb.set_trace()
+    #pdb.set_trace()
     #V = get_noise(mu, var_eta) #TODO what's V?
     P = np.matmul(A, np.matmul(V, A.T)) + gamma #TODO if gamma should change at each iteration?
     t = np.linalg.inv(np.matmul(np.matmul(C, P), C.T) + sigma)
     K = np.matmul(np.matmul(P, C.T), t) 
     px, py, vx, vy = gen_next_measurement(px, py, vx, vy, ay, dt)
-    px, py, vx, vy = add_noise(px, py, vx, vy, mu, var_eta)
+    #px, py, vx, vy = add_noise(px, py, vx, vy, mu, var_eta)
     x = np.array([px, py, vx, vy])
     tt = x - np.matmul(C, np.matmul(A, mu))
     mu = np.matmul(A, mu) + np.matmul(K, tt)
     states_optimal.append(mu)
-    break
+    V = 1 - np.matmul(np.matmul(K, C), P)
+    #C = 
+    #break
 
 states_optimal = np.array(states_optimal)
-
-#states_optimal
-
 
 plt_px = plt.subplot(2, 2, 1)
 #plt.set_title("Original and overlaid predicted signal")
 plt_px.plot(states_gt[...,0], label = "Ground truth")
 plt_px.plot(states_measurement[...,0], label = "Measurement")
+plt_px.plot(states_optimal[...,0], label = "Optimal")
 plt.ylabel("X Position (m)")
 plt.xlabel("time (sec)")
+plt.legend()
 
 plt_py = plt.subplot(2, 2, 2)
 plt_py.plot(states_gt[...,1], label = "Ground truth")
 plt_py.plot(states_measurement[...,1], label = "Measurement")
+plt_py.plot(states_optimal[...,1], label = "Optimal")
 plt.ylabel("Y Position (m)")
 plt.xlabel("time (sec)")
 
 plt_vx = plt.subplot(2, 2, 3)
 plt_vx.plot(states_gt[...,2], label = "Ground truth")
 plt_vx.plot(states_measurement[...,2], label = "Measurement")
+plt_vx.plot(states_optimal[...,1], label = "Optimal")
 plt.ylabel("X Velocity (m)")
 plt.xlabel("time (sec)")
 
 plt_vy = plt.subplot(2, 2, 4)
 plt_vy.plot(states_gt[...,3], label = "Ground truth")
 plt_vy.plot(states_measurement[...,3], label = "Measurement")
+plt_vy.plot(states_optimal[...,1], label = "Optimal")
 plt.ylabel("Y Velocity (m)")
 plt.xlabel("time (sec)")
 
