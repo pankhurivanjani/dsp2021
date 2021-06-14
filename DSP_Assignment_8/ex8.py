@@ -47,7 +47,6 @@ def frame_window(signal, frame_shift, frame_width):
     pad_signal_length = num_frames * frame_shift + frame_width
     z = np.zeros((pad_signal_length - signal_length, signal.shape[1]))
 
-    #pdb.set_trace()
     pad_signal = np.append(signal, z, axis=0) # Pad Signal to make sure that all frames have equal number of samples without truncating any samples from the original signal
 
     indices = np.tile(np.arange(0, frame_width), (num_frames, 1)) + np.tile(np.arange(0, num_frames * frame_shift, frame_shift), (frame_width, 1)).T # [num_frames, frame_width]
@@ -59,8 +58,9 @@ def frame_window(signal, frame_shift, frame_width):
 frame_width = 0.025 #25 ms
 frame_shift = 0.01 # 10 ms
 
-#pdb.set_trace()
 frames = frame_window(point8_emph, frame_shift, frame_width)
+
+# Number of frames from k samples = ceil(signal_length - frame_width) / frame_shift
 
 # 1.3 Mel-Filterbank
 def hz2mel(f_hz):
@@ -116,7 +116,9 @@ filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)  #
 filter_banks = 20 * np.log10(filter_banks)  # dB
 
 mfcc = dct(filter_banks, type=2, axis=1, norm='ortho')[:, 1 : (num_ceps + 1)] 
-# Keep 2-13, (num_frames, num_ceps)
+# Keep 2-13, discard DCT coefficient 0 (num_frames, num_ceps)
+
+
 
 fig, ax = plt.subplots()
 mfcc_data = np.swapaxes(mfcc, 0 ,1)
@@ -126,18 +128,26 @@ ax.set_xlabel('Time')
 ax.set_ylabel('Frequency')
 plt.savefig('DSP_Assignment_8/mfcc_spectrogram.jpg') 
 
+# The zeroth coefficient is often excluded since it represents the average log-energy of the input signal,
+# which only carries little speaker-specific information.
+
 # 1.5 Dynamic features
-def dynamic_feature(mfcc):
-    #pdb.set_trace()
-    (num_frames, num_ceps) = mfcc.shape
-    features = np.zeros((num_ceps))
+def dynamic_feature(data):
+    (num_frames, num_ceps) = data.shape
+    features = np.zeros(data.shape)
     for m in range(1, num_ceps):
-        denom = 0
         for i in range (1, num_frames-1):
-            features[m] += i * (mfcc[i-1][m] - mfcc[i+1][m]) 
-            denom += i ** 2
-        features[m] /= denom
+            features[i][m] += (data[i-1][m] - data[i+1][m]) / 2
     return features
 
-pdb.set_trace()
-features = dynamic_feature(mfcc)
+first_order_features = dynamic_feature(mfcc)
+second_order_features = dynamic_feature(first_order_features)
+
+all_features = np.concatenate((mfcc, first_order_features, second_order_features), axis=0)
+fig, ax = plt.subplots()
+features_data = np.swapaxes(all_features, 0 ,1)
+cax = ax.imshow(features_data, interpolation='nearest', cmap=cm.coolwarm, origin='lower', aspect='auto')
+ax.set_title('MFCC, First Order and Second Order Cepstral Coefficients Spectrogram')
+ax.set_xlabel('Time (s)') 
+ax.set_ylabel('Frequency')
+plt.savefig('DSP_Assignment_8/features_spectrogram.jpg') 
