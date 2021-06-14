@@ -13,7 +13,7 @@ def preemphasis(audiostream, alpha=0.95):
     emph_audiostream = np.append(audiostream[0, None], audiostream[1:] - alpha * audiostream[:-1], axis=0)
     return emph_audiostream
 
-point8, sample_rate = sf.read('DSP_Assignment_8/point8.au') # (485100, 8), 44100, 11 sec
+point8, sample_rate = sf.read('point8.au') # (485100, 8), 44100, 11 sec
 #sounddevice.play(point8[0], sample_rate)
 '''
 plt.figure(figsize=(16, 8))    
@@ -22,7 +22,7 @@ plt.title('Audio signal')
 plt.xlabel('Time (s)') #TODO samples or time?
 plt.ylabel('Amplitude (s)')
 #plt.show()
-plt.savefig('DSP_Assignment_8/audio_signal.jpg')
+plt.savefig('audio_signal.png')
 '''
 point8_emph = preemphasis(point8)
 '''
@@ -32,7 +32,7 @@ plt.title('Audio signal after pre-emphasis')
 plt.xlabel('Time (s)') #TODO samples or time?
 plt.ylabel('Amplitude (s)')
 #plt.show()
-plt.savefig('DSP_Assignment_8/audio_signal_emph.jpg')
+plt.savefig('audio_signal_emph.png')
 '''
 # 1.2 Framing and Windowing
 def frame_window(signal, frame_shift, frame_width):
@@ -105,7 +105,7 @@ plt.title('Triangular filter banks')
 plt.xlabel('Frequency') 
 plt.ylabel('Filter')
 #plt.show()
-plt.savefig('DSP_Assignment_8/mel_filterbank.jpg') 
+plt.savefig('mel_filterbank.png') 
 
 # 1.4 MFCC Implementation
 #pdb.set_trace()
@@ -126,7 +126,7 @@ plt.title('Audio signal after pre-emphasis')
 plt.xlabel('Time (s)') #TODO samples or time?
 plt.ylabel('Amplitude (s)')
 #plt.show()
-plt.savefig('DSP_Assignment_8/audio_signal_emph.jpg')
+plt.savefig('audio_signal_emph.png')
 
 
 from matplotlib import cm
