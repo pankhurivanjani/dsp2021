@@ -2,9 +2,9 @@ import math
 import numpy as np
 from scipy.fft import dct, idct
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import soundfile as sf
 import sounddevice
-from scipy.io import wavfile
 import pdb
 
 # 1.1 Pre-emphasis
@@ -14,16 +14,15 @@ def preemphasis(audiostream, alpha=0.95):
     return emph_audiostream
 
 point8, sample_rate = sf.read('DSP_Assignment_8/point8.au') # (485100, 8), 44100, 11 sec
-#sample_rate, point8 = wavfile.read('DSP_Assignment_8/point8.au') Doesn't work
-'''
 #sounddevice.play(point8[0], sample_rate)
+'''
 plt.figure(figsize=(16, 8))    
 plt.plot(point8)
 plt.title('Audio signal')
 plt.xlabel('Time (s)') #TODO samples or time?
 plt.ylabel('Amplitude (s)')
 #plt.show()
-plt.savefig('audio_signal.jpg')
+plt.savefig('DSP_Assignment_8/audio_signal.jpg')
 '''
 point8_emph = preemphasis(point8)
 '''
@@ -33,9 +32,8 @@ plt.title('Audio signal after pre-emphasis')
 plt.xlabel('Time (s)') #TODO samples or time?
 plt.ylabel('Amplitude (s)')
 #plt.show()
-plt.savefig('audio_signal_emph.jpg')
+plt.savefig('DSP_Assignment_8/audio_signal_emph.jpg')
 '''
-
 # 1.2 Framing and Windowing
 def frame_window(signal, frame_shift, frame_width):
     k = signal.shape[0]
@@ -82,7 +80,7 @@ def mel_filterbank(fl, fh, nfft, fs, L):
     mel_points = np.linspace(mel_fl, mel_fh, L+2)
     hz_points = mel2hz(mel_points)
     f = np.floor((nfft + 1) * hz_points / fs) 
-    filter_bank = np.zeros((L, int(np.floor(nfft / 2 + 1)))) #TODO
+    filter_bank = np.zeros((L, int(np.floor(nfft / 2 + 1))))
     
     for m in range(1, L+1):
         for k in range(int(f[m-1]), int(f[m])):
@@ -94,7 +92,7 @@ def mel_filterbank(fl, fh, nfft, fs, L):
 fl = 133 # Hz
 fh = 6855 # Hz
 fs = 16000 # Hz
-nfft = 1024
+nfft = 256 #1024
 L = 20
 
 filter_bank = mel_filterbank(fl, fh, nfft, fs, L)
@@ -107,4 +105,42 @@ plt.title('Triangular filter banks')
 plt.xlabel('Frequency') 
 plt.ylabel('Filter')
 #plt.show()
-plt.savefig('mel_filterbank.jpg') 
+plt.savefig('DSP_Assignment_8/mel_filterbank.jpg') 
+
+# 1.4 MFCC Implementation
+#pdb.set_trace()
+mag_frames = np.absolute(np.fft.rfft(frames, nfft))  # Magnitude of the FFT
+pow_frames = ((1.0 / nfft) * ((mag_frames) ** 2))  # Power Spectrum
+
+filter_banks = np.dot(pow_frames, filter_bank.T)
+filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)  # Numerical Stability
+filter_banks = 20 * np.log10(filter_banks)  # dB
+
+num_ceps = 12
+#pdb.set_trace()
+mfcc = dct(filter_banks, type=2, axis=1, norm='ortho')[:, 1 : (num_ceps + 1)] # Keep 2-13
+'''
+plt.figure(figsize=(16, 8))  
+plt.plot(point8_emph)
+plt.title('Audio signal after pre-emphasis')
+plt.xlabel('Time (s)') #TODO samples or time?
+plt.ylabel('Amplitude (s)')
+#plt.show()
+plt.savefig('DSP_Assignment_8/audio_signal_emph.jpg')
+
+
+from matplotlib import cm
+fig, ax = plt.subplots()
+pdb.set_trace()
+mfcc_data= np.swapaxes(mfcc, 0 ,1)
+cax = ax.imshow(mfcc_data[0], interpolation='nearest', cmap=cm.coolwarm, origin='lower')
+ax.set_title('MFCC')
+plt.show()
+'''
+fig, ax = plt.subplots()
+#mfcc_data = np.swapaxes(mfcc[0], 0 ,1)
+mfcc_data = mfcc[3]
+cax = ax.imshow(mfcc_data, interpolation='nearest', cmap=cm.coolwarm, origin='lower', aspect='auto')
+ax.set_title('MFCC')
+#Showing mfcc_data
+plt.show()
