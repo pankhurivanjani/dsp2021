@@ -15,7 +15,7 @@ def preemphasis(audiostream, alpha=0.95):
 
 point8, sample_rate = sf.read('DSP_Assignment_8/point8.au') # (485100, 8), 44100, 11 sec
 #sounddevice.play(point8[0], sample_rate)
-'''
+
 plt.figure(figsize=(16, 8))    
 plt.plot(point8)
 plt.title('Audio signal')
@@ -23,9 +23,9 @@ plt.xlabel('Time (s)') #TODO samples or time?
 plt.ylabel('Amplitude (s)')
 #plt.show()
 plt.savefig('DSP_Assignment_8/audio_signal.jpg')
-'''
+
 point8_emph = preemphasis(point8)
-'''
+
 plt.figure(figsize=(16, 8))  
 plt.plot(point8_emph)
 plt.title('Audio signal after pre-emphasis')
@@ -33,38 +33,34 @@ plt.xlabel('Time (s)') #TODO samples or time?
 plt.ylabel('Amplitude (s)')
 #plt.show()
 plt.savefig('DSP_Assignment_8/audio_signal_emph.jpg')
-'''
+
+
 # 1.2 Framing and Windowing
 def frame_window(signal, frame_shift, frame_width):
-    k = signal.shape[0]
+    frame_width, frame_shift = frame_width * sample_rate, frame_shift * sample_rate  # Convert from seconds to samples
+    # frame_width - 1102, frame_shift - 441
+    signal_length = len(signal)
+    frame_width = int(round(frame_width))
+    frame_shift = int(round(frame_shift))
+    num_frames = int(np.ceil(float(np.abs(signal_length - frame_width)) / frame_shift))  # Make sure that we have at least 1 frame
+    # num_frames - 1098
+    pad_signal_length = num_frames * frame_shift + frame_width
+    z = np.zeros((pad_signal_length - signal_length, signal.shape[1]))
 
-'''
-frame_shift = 44100
-frame_width = 44100
-frame_window(point8_emph, frame_shift, frame_width)
-'''
+    #pdb.set_trace()
+    pad_signal = np.append(signal, z, axis=0) # Pad Signal to make sure that all frames have equal number of samples without truncating any samples from the original signal
 
-frame_size = 0.025 #25 ms
-frame_stride = 0.01 # 10 ms
+    indices = np.tile(np.arange(0, frame_width), (num_frames, 1)) + np.tile(np.arange(0, num_frames * frame_shift, frame_shift), (frame_width, 1)).T # [num_frames, frame_width]
+    frames = pad_signal[indices.astype(np.int32, copy=False)]
+
+    frames *= np.repeat(np.hamming(frame_width)[None], point8_emph.shape[1], axis=0).T #(1098, 1102, 8)
+    return frames
+
+frame_width = 0.025 #25 ms
+frame_shift = 0.01 # 10 ms
 
 #pdb.set_trace()
-frame_length, frame_step = frame_size * sample_rate, frame_stride * sample_rate  # Convert from seconds to samples
-# frame_length - 1102, frame_step - 441
-signal_length = len(point8_emph)
-frame_length = int(round(frame_length))
-frame_step = int(round(frame_step))
-num_frames = int(np.ceil(float(np.abs(signal_length - frame_length)) / frame_step))  # Make sure that we have at least 1 frame
-# num_frames - 1098
-pad_signal_length = num_frames * frame_step + frame_length
-z = np.zeros((pad_signal_length - signal_length, point8_emph.shape[1]))
-
-#pdb.set_trace()
-pad_signal = np.append(point8_emph, z, axis=0) # Pad Signal to make sure that all frames have equal number of samples without truncating any samples from the original signal
-
-indices = np.tile(np.arange(0, frame_length), (num_frames, 1)) + np.tile(np.arange(0, num_frames * frame_step, frame_step), (frame_length, 1)).T # [num_frames, frame_length]
-frames = pad_signal[indices.astype(np.int32, copy=False)]
-
-frames *= np.repeat(np.hamming(frame_length)[None], point8_emph.shape[1], axis=0).T #(1098, 1102, 8)
+frames = frame_window(point8_emph, frame_shift, frame_width)
 
 # 1.3 Mel-Filterbank
 def hz2mel(f_hz):
@@ -95,6 +91,7 @@ fh = 6855 # Hz
 fs = 16000 # Hz
 nfft = 512 #1024
 L = 20
+num_ceps = 12
 
 filter_bank = mel_filterbank(fl, fh, nfft, fs, L)
 
@@ -119,8 +116,6 @@ filter_banks = np.dot(pow_frames, filter_bank.T)
 filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)  # Numerical Stability
 filter_banks = 20 * np.log10(filter_banks)  # dB
 
-num_ceps = 12
-#pdb.set_trace()
 mfcc = dct(filter_banks, type=2, axis=1, norm='ortho')[:, 1 : (num_ceps + 1)] # Keep 2-13
 # (1098, 12, 20) if fft over all channels, (1098, 12) if single channel
 
@@ -130,5 +125,6 @@ cax = ax.imshow(mfcc_data, interpolation='nearest', cmap=cm.coolwarm, origin='lo
 ax.set_title('MFCC Spectrogram')
 ax.set_xlabel('Time') 
 ax.set_ylabel('Frequency')
-#Showing mfcc_data
 plt.savefig('DSP_Assignment_8/mfcc_spectrogram.jpg') 
+
+# 1.5 Dynamic features
