@@ -90,7 +90,7 @@ fl = 133 # Hz
 fh = 6855 # Hz
 fs = 16000 # Hz
 nfft = 512 #1024
-L = 20
+L = 20 # number of filters
 num_ceps = 12
 
 filter_bank = mel_filterbank(fl, fh, nfft, fs, L)
@@ -106,7 +106,6 @@ plt.ylabel('Filter')
 plt.savefig('DSP_Assignment_8/mel_filterbank.jpg') 
 
 # 1.4 MFCC Implementation
-pdb.set_trace()
 channel_idx = 0
 mag_frames = np.absolute(np.fft.rfft(frames[...,channel_idx], nfft))  # Magnitude of the FFT,
 # (1098, 1102, 257) if fft over all channels, (1098, 257) if single channel
@@ -116,8 +115,8 @@ filter_banks = np.dot(pow_frames, filter_bank.T)
 filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)  # Numerical Stability
 filter_banks = 20 * np.log10(filter_banks)  # dB
 
-mfcc = dct(filter_banks, type=2, axis=1, norm='ortho')[:, 1 : (num_ceps + 1)] # Keep 2-13
-# (1098, 12, 20) if fft over all channels, (1098, 12) if single channel
+mfcc = dct(filter_banks, type=2, axis=1, norm='ortho')[:, 1 : (num_ceps + 1)] 
+# Keep 2-13, (num_frames, num_ceps)
 
 fig, ax = plt.subplots()
 mfcc_data = np.swapaxes(mfcc, 0 ,1)
@@ -128,3 +127,17 @@ ax.set_ylabel('Frequency')
 plt.savefig('DSP_Assignment_8/mfcc_spectrogram.jpg') 
 
 # 1.5 Dynamic features
+def dynamic_feature(mfcc):
+    #pdb.set_trace()
+    (num_frames, num_ceps) = mfcc.shape
+    features = np.zeros((num_ceps))
+    for m in range(1, num_ceps):
+        denom = 0
+        for i in range (1, num_frames-1):
+            features[m] += i * (mfcc[i-1][m] - mfcc[i+1][m]) 
+            denom += i ** 2
+        features[m] /= denom
+    return features
+
+pdb.set_trace()
+features = dynamic_feature(mfcc)
