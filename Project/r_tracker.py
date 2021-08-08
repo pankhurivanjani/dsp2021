@@ -7,21 +7,27 @@ import pdb
 
 #2.1
 #2.1.2
-def gr2r(gamma, gr_infected):
-    return 1 + 1 / (gamma) * gr_infected
-
-#TODO drop country column from everywhere
-
 days_infectious = 7
 gamma = 1 / float(days_infectious) #transition rate from infected to recovered
+
+def gr2R(gr_infected):
+    #R = 1 + (1 / gamma) * gr_infected
+    R = 1 + days_infectious * gr_infected
+    return R
+
+def R2gr(R):
+    gr_infected = gamma * (R - 1)
+    return gr_infected
+
+#TODO drop country column from everywhere
 random_seed = 12345
 np.random.seed(random_seed)
 
 #init_date = '2020-03-01'
 #end_date = '2021-06-30' 
 mu, sigma = 0.25, 0.15
-gr_infected = np.random.normal(mu, sigma)
-r0 = gr2r(gamma, gr_infected)
+gr_infected_0 = np.random.normal(mu, sigma)
+R_0 = gr2R(gr_infected_0)
 population_DE = 83160000 # 83.16 millions in 2020
 input_folder = '.'
 output_folder = '.'
@@ -181,31 +187,24 @@ df['gr_infected_7_filtered'] = gr_infected_7_filtered
 var_gr_infected_7 = np.var(gr_infected_7)
 var_gr_infected_7_filtered = np.var(gr_infected_7_filtered)
 var_epsilon = (2 * window_size) * (var_gr_infected_7 - var_gr_infected_7_filtered) / (2 * window_size - math.pi) #0.012482567657577066
+std_epsilon = math.sqrt(var_epsilon)
 
 # Save final dataset
 df.to_csv('{}/DE_Dataset.csv'.format(output_folder), index = False)
 
 #2.1.4
-pdb.set_trace()
-var_eta = (0.5 * (math.sqrt(var_epsilon))) ** 2
+#pdb.set_trace()
 #plot time-series of R from the beginning to end date
 #computed R - measurement, estimated R- prediction, should overlap
 # x axis - R vs. date, possibly jump in data if reporting/testing changes
 plt.rcParams.update({'font.size': 15})
-
-def genPosVel(px0, py0, vx0, vy0, ay, dt):
-    pxn = px0 + vx0 * dt
-    pyn = py0 + vy0 * dt + 0.5 * ay * (dt)**2
-    vxn = vx0
-    vyn = vy0 + ay * dt
-    return pxn, pyn, vxn, vyn
-
 
 def addNoise(cs, sigma):
     '''
     sigma: standard deviation of noise distribution
     ns: noisy output signal
     '''
+    #pdb.set_trace()
     rn = np.random.normal(0.0, sigma)
     ns = cs + rn
     return ns
@@ -257,6 +256,49 @@ def calcEst(mdl, mes, K, C):
     xh = mdl + Kz
     return xh
 
+# Generate state equation to obtain the state transition matrix A
+#pdb.set_trace()
+
+R_measured = gr2R(gr_infected_7) #Measurement
+N = R_measured.shape[0] #TODO initialize it very early 
+
+R_estimate = []
+R_t = R_0
+std_eta = 0.5 * std_epsilon
+
+for _ in range(N):
+    R_t = addNoise(R_t, std_eta)
+    R_estimate.append(R_t)
+
+pdb.set_trace()
+plt.figure(figsize=(16, 8))        
+plt_R = plt.subplot(2, 2, 1)
+plt_R.plot(R_measured, label = "Measurement")
+plt_R.plot(R_estimate, label = "Estimate")
+#plt_R.plot(R_optimal, label = "Optimal")
+
+plt.ylabel("R")
+plt.xlabel("Number of days") # TODO or date?
+plt.legend()
+plt.savefig('filter.png')
+#plt.title("2-D Kalman Filter with eta = {} and sigma = {}".format(var_eta, var_gamma))
+#R_t = #Estimate
+#Optimal
+#R_t = R_t + addNoise
+'''
+A = 1
+B = 0
+Q = 
+P = 
+P = calcP(P, A, Q)
+C = 
+R =
+K = calcK(P, C, R)
+mdl = 
+mes = 
+xhat = calcEst(mdl, mes, K, C)
+#calcP()
+'''
 #2.1.5
 
 #2.2
