@@ -1,6 +1,7 @@
 import os
 import sys
 import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
 import pdb
 
@@ -163,14 +164,99 @@ mask = df['days_since_min_cases'] >= 1
 df = df.loc[mask, ]
 del df['days_since_min_cases']
 
+'''
+# Save final dataset
+df.to_csv('{}/DE_Dataset.csv'.format(output_folder), index = False)
+'''
+
+#2.1.3
+from scipy import signal, misc
+import math
+
+window_size = 3 #TODO tune this parameter
+gr_infected_7 = np.array(df['gr_infected_7'])
+gr_infected_7_filtered = signal.medfilt(gr_infected_7, window_size)
+df['gr_infected_7_filtered'] = gr_infected_7_filtered
+
+var_gr_infected_7 = np.var(gr_infected_7)
+var_gr_infected_7_filtered = np.var(gr_infected_7_filtered)
+var_epsilon = (2 * window_size) * (var_gr_infected_7 - var_gr_infected_7_filtered) / (2 * window_size - math.pi) #0.012482567657577066
+
 # Save final dataset
 df.to_csv('{}/DE_Dataset.csv'.format(output_folder), index = False)
 
-#2.1.3
-
-
-
 #2.1.4
+pdb.set_trace()
+var_eta = (0.5 * (math.sqrt(var_epsilon))) ** 2
+#plot time-series of R from the beginning to end date
+#computed R - measurement, estimated R- prediction, should overlap
+# x axis - R vs. date, possibly jump in data if reporting/testing changes
+plt.rcParams.update({'font.size': 15})
+
+def genPosVel(px0, py0, vx0, vy0, ay, dt):
+    pxn = px0 + vx0 * dt
+    pyn = py0 + vy0 * dt + 0.5 * ay * (dt)**2
+    vxn = vx0
+    vyn = vy0 + ay * dt
+    return pxn, pyn, vxn, vyn
+
+
+def addNoise(cs, sigma):
+    '''
+    sigma: standard deviation of noise distribution
+    ns: noisy output signal
+    '''
+    rn = np.random.normal(0.0, sigma)
+    ns = cs + rn
+    return ns
+
+
+def calcP(P, A, Q):
+    '''
+    P: old process covariance matrix
+    A: state transition matrix
+    Q: process noise(perturbation) covariance matrix
+    Pn: new process covariance matrix 
+    '''
+    row, col = np.shape(A)
+    Pn = np.zeros((row, col))
+    PAt = np.matmul(P, np.transpose(A))
+    Pn = np.matmul(A, PAt) + Q
+    return Pn
+
+
+def calcK(P, C, R):
+    '''
+    Calculate Kalman gain to mix process with measurement
+    
+    Parameters: 
+        P: apriori process covariance matrix
+        C: transformation matrix to map parameters to measurment domain
+        R: measurement noise(error) covariance matrix
+    
+    Returns:
+        Pn: new process covariance matrix 
+    '''
+    row, col = np.shape(P)
+    K = np.zeros((row, col))
+    PCt = np.matmul(P, np.transpose(C))
+    CPCtpR = np.matmul(C, PCt) + R
+    K = np.matmul(PCt, np.linalg.inv(CPCtpR)) 
+    return K
+
+def calcEst(mdl, mes, K, C): 
+    '''
+    Calculate estimated state as a mix of process and measurement
+    mdl: predicted/model state vector (according to theoretical formulas)
+    mes: measurement state vector (containing measurement error)
+    C: transformation matrix to map state parameters to measurement domain
+    xh: xhat estimated state vector based on Kalman gain
+    '''
+    z = mes - np.matmul(C, mdl)
+    Kz = np.matmul(K, z)
+    xh = mdl + Kz
+    return xh
+
 #2.1.5
 
 #2.2
