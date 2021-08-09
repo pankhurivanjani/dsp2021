@@ -55,15 +55,10 @@ def construct_dataset(file_name, var_name):
     df.rename(columns = {'variable': 'Date',
                          'value': var_name},
               inplace = True)
-    # For some countries, data are reported
-    # by regions / states; aggregate to country level
-    #pdb.set_trace()
     return df
-    #return df.groupby(['Country/Region', 'Date']).sum().reset_index() #TODO probably not required
 
 # Read in data on total cases
-df = construct_dataset(file_name = '{}/DE_confirmed.csv'.format(input_folder), 
-                       var_name = 'total_cases')
+df = construct_dataset(file_name = '{}/DE_Confirmed.csv'.format(input_folder), var_name = 'total_cases')
 
 #TODO why is the first row dropped? 1 Mar 2020 
 # Merge in recovered cases and deaths
@@ -76,13 +71,11 @@ for file_name, var_name in zip(['{}/DE_Recovered.csv'.format(input_folder),
                   on = ['Country/Region', 'Date'], 
                   how = 'left')
 
-#pdb.set_trace()
 # Clean up the dataframe
 df['Date'] = pd.to_datetime(df['Date'])
 df.reset_index(inplace = True)
 del df['index']
 
-#pdb.set_trace()
 # Sort by date
 df.sort_values(by = ['Date'], ascending = True,
                inplace = True)
@@ -95,50 +88,34 @@ for var_name in ['cases', 'recovered', 'deaths']:
 
 # Construct number of infected
 df['infected_{}'.format(days_infectious)] = np.nan
-for country in df['Country/Region'].unique():
-    mask = df['Country/Region'] == country
-    df_country = df.loc[mask, ].copy().reset_index()
-    T = df_country.shape[0]
-    #pdb.set_trace()
-    # Initialize number of infected
-    infected = np.zeros(T) * np.nan
-    infected[0] = df_country['total_cases'][0]
 
-    # Main loop
-    for tt in range(1, T):
-        #gamma = 1 / float(days_infectious)
+T = df.shape[0]
+#pdb.set_trace()
+# Initialize number of infected
+infected = np.zeros(T) * np.nan
+infected[0] = df['total_cases'][0]
 
-        # Calculate number of infected recursively;
-        # In the JH CSSE dataset, there are some
-        # data problems whereby new cases are occasionally
-        # reported to be negative; in these case, take zero
-        # when constructing time series for # of invected,
-        # and then change values to NaN's later on
-        infected[tt] = ((1 - gamma) * infected[tt - 1] 
-                        + np.maximum(df_country['new_cases'][tt], 0.0))
-    df.loc[mask, 'infected_{}'.format(days_infectious)] = infected
-
-# TODO --can be removed
-# In the original JH CSSE dataset, there are
-# some inconsistencies in the data
-# Replace with NaN's in these cases
-mask = df['new_cases'] < 0
-df.loc[mask, 'new_cases'] = np.nan
-print('     Inconsistent observations in new_cases in JH CSSE dataset: {:}'.format(mask.sum()))
-df.loc[mask, 'infected_{}'.format(days_infectious)] = np.nan
+# Main loop
+for tt in range(1, T):
+    # Calculate number of infected recursively;
+    # In the JH CSSE dataset, there are some
+    # data problems whereby new cases are occasionally
+    # reported to be negative; in these case, take zero
+    # when constructing time series for # of invected,
+    # and then change values to NaN's later on
+    infected[tt] = ((1 - gamma) * infected[tt - 1] 
+                    + np.maximum(df['new_cases'][tt], 0.0))
+df['infected_{}'.format(days_infectious)] = infected
 
 # Calculate growth rate of infected
 df['gr_infected_{}'.format(days_infectious)] = ((df['infected_{}'.format(days_infectious)] 
-    / df.groupby('Country/Region').shift(1)['infected_{}'.format(days_infectious)]) - 1)
+    / df.shift(1)['infected_{}'.format(days_infectious)]) - 1)
 
-mask = df.groupby('Country/Region').shift(1)['infected_{}'.format(days_infectious)] == 0.0
+mask = df.shift(1)['infected_{}'.format(days_infectious)] == 0.0
 df.loc[mask, 'gr_infected_{}'.format(days_infectious)] = np.nan
 
 # Remove initial NaN values for growth rates
-for country in df['Country/Region'].unique():
-  mask = df['Country/Region'] == country
-  T = df.loc[mask, ].shape[0]
-  df.loc[mask, 'days_since_min_cases'] = range(T)
+df['days_since_min_cases'] = range(T)
 mask = df['days_since_min_cases'] >= 1
 df = df.loc[mask, ]
 del df['days_since_min_cases']
@@ -301,3 +278,6 @@ plt.savefig('filter.png')
 
 #TODO plot kalman gain coefficients for varying noises
 #2.2
+# TODO take into account Germa population
+
+#TODO confidence intervals
