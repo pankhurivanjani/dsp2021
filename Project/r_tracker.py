@@ -134,31 +134,6 @@ df['gr_infected_{}'.format(days_infectious)] = ((df['infected_{}'.format(days_in
 mask = df.groupby('Country/Region').shift(1)['infected_{}'.format(days_infectious)] == 0.0
 df.loc[mask, 'gr_infected_{}'.format(days_infectious)] = np.nan
 
-# TODO --can be removed
-# Deal with potential consecutive zeros in the number of infected
-mask = (df['infected_{}'.format(days_infectious)] == 0.0) & (df.groupby('Country/Region').shift(1)['infected_{}'.format(days_infectious)] == 0.0)
-df.loc[mask, 'gr_infected_{}'.format(days_infectious)] = - (1 / days_infectious)
-if mask.sum() > 0:
-    print('     Number of observations with zero infected (with {} infectious days) over two consecutive days: {:}'.format(days_infectious, mask.sum()))
-
-# TODO --can be removed
-# Set to NaN observations with very small
-# number of cases but very high growth rates
-# to avoid these observations acting as
-# large outliers
-mask = (df['new_cases'] <= 25) & (df['gr_infected_{}'.format(days_infectious)] >= gamma * (5 - 1)) # Implicit upper bound on R
-df.loc[mask, ['infected_{}'.format(days_infectious),
-            'gr_infected_{}'.format(days_infectious)]] = np.nan
-
-# TODO --can be removed
-# Set to NaN observations implausibly
-# high growth rates that are likely
-# due to data issues 
-gamma = 1 / float(days_infectious)
-mask = (df['gr_infected_{}'.format(days_infectious)] >= gamma * (10 - 1)) # Implicit upper bound on R
-df.loc[mask, ['infected_{}'.format(days_infectious),
-                'gr_infected_{}'.format(days_infectious)]] = np.nan
-
 # Remove initial NaN values for growth rates
 for country in df['Country/Region'].unique():
   mask = df['Country/Region'] == country
@@ -285,41 +260,44 @@ var_eta = std_eta ** 2
 for _ in range(N):
     R_t = addNoise(R_t, std_eta)
     R_estimate.append(R_t)
-
+R_estimate = np.array(R_estimate)
 #pdb.set_trace()
 plt.figure(figsize=(16, 8))        
-plt_R = plt.subplot(2, 2, 1)
-plt_R.plot(R_measured, label = "Measurement")
-plt_R.plot(R_estimate, label = "Estimate")
+#plt_R = plt.subplot(2, 2, 1)
+plt.plot(R_measured, label = "Measurement")
+plt.plot(R_estimate, label = "Estimate")
 #plt_R.plot(R_optimal, label = "Optimal") # Optimal estimation, output of Kalman filter
 
 plt.ylabel("R")
 plt.xlabel("Number of days") # TODO or date?
-plt.legend()
-plt.savefig('filter.png')
-#plt.title("2-D Kalman Filter with eta = {} and sigma = {}".format(var_eta, var_gamma))
-#R_t = #Estimate
-#Optimalcd 
 
+#plt.title("2-D Kalman Filter with eta = {} and sigma = {}".format(var_eta, var_gamma))
+#Optimalcd 
+# TODO Kalman init function
 A = np.array([[1]]) # also referrred as F
 C = np.array([[1]]) # also referred as H
-#B = 0
-Q = var_eta
-R = var_epsilon
+Q =  np.array([[var_eta]])
+R =  np.array([[var_epsilon]])
 #pdb.set_trace()
 var_R_0 = (1 / gamma) * var_gr_infected_0
 P = np.array([[var_R_0]])
-
+R_estimate = R_estimate[:, np.newaxis]
+R_measured = R_measured[:, np.newaxis]
 R_optimal = []
+
 for i in range(N):
     P = calcP_prior(P, A, Q)
     K = calcK(P, C, R)
-    mdl = R_estimate[i]
-    mes = R_measured[i]
-    xhat = calcEst(mdl, mes, K, C)
+    xhat = calcEst(R_estimate[i], R_measured[i], K, C)
     R_optimal.append(xhat)
     P = calcP_posterior(P, K, C)
 
-#2.1.5
+R_optimal = np.squeeze(np.array(R_optimal))
 
+#2.1.5
+plt.plot(R_optimal, label = "Optimal")
+plt.legend()
+plt.savefig('filter.png')
+
+#TODO plot kalman gain coefficients for varying noises
 #2.2
