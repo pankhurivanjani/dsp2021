@@ -88,24 +88,25 @@ for var_name in ['cases', 'recovered', 'deaths']:
 
 # Construct number of infected
 df['infected_{}'.format(days_infectious)] = np.nan
+for country in df['Country/Region'].unique():
+    mask = df['Country/Region'] == country
+    df_country = df.loc[mask, ].copy().reset_index()
+    T = df_country.shape[0]
+    # Initialize number of infected
+    infected = np.zeros(T) * np.nan
+    infected[0] = df_country['total_cases'][0]
 
-T = df.shape[0]
-#pdb.set_trace()
-# Initialize number of infected
-infected = np.zeros(T) * np.nan
-infected[0] = df['total_cases'][0]
-
-# Main loop
-for tt in range(1, T):
-    # Calculate number of infected recursively;
-    # In the JH CSSE dataset, there are some
-    # data problems whereby new cases are occasionally
-    # reported to be negative; in these case, take zero
-    # when constructing time series for # of invected,
-    # and then change values to NaN's later on
-    infected[tt] = ((1 - gamma) * infected[tt - 1] 
-                    + np.maximum(df['new_cases'][tt], 0.0))
-df['infected_{}'.format(days_infectious)] = infected
+    # Main loop
+    for tt in range(1, T):
+        # Calculate number of infected recursively;
+        # In the JH CSSE dataset, there are some
+        # data problems whereby new cases are occasionally
+        # reported to be negative; in these case, take zero
+        # when constructing time series for # of invected,
+        # and then change values to NaN's later on
+        infected[tt] = ((1 - gamma) * infected[tt - 1] 
+                        + np.maximum(df_country['new_cases'][tt], 0.0))
+    df.loc[mask, 'infected_{}'.format(days_infectious)] = infected
 
 # Calculate growth rate of infected
 df['gr_infected_{}'.format(days_infectious)] = ((df['infected_{}'.format(days_infectious)] 
@@ -120,10 +121,8 @@ mask = df['days_since_min_cases'] >= 1
 df = df.loc[mask, ]
 del df['days_since_min_cases']
 
-'''
 # Save final dataset
 df.to_csv('{}/DE_Dataset.csv'.format(output_folder), index = False)
-'''
 
 #2.1.3
 from scipy import signal, misc
