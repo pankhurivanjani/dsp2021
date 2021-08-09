@@ -25,9 +25,7 @@ np.random.seed(random_seed)
 
 #init_date = '2020-03-01'
 #end_date = '2021-06-30' 
-mu, sigma = 0.25, 0.15
-gr_infected_0 = np.random.normal(mu, sigma)
-R_0 = gr2R(gr_infected_0)
+
 population_DE = 83160000 # 83.16 millions in 2020
 input_folder = '.'
 output_folder = '.'
@@ -180,13 +178,13 @@ from scipy import signal, misc
 import math
 
 window_size = 3 #TODO tune this parameter
-gr_infected_7 = np.array(df['gr_infected_7'])
-gr_infected_7_filtered = signal.medfilt(gr_infected_7, window_size)
-df['gr_infected_7_filtered'] = gr_infected_7_filtered
+gr_infected = np.array(df['gr_infected_7'])
+gr_infected_filtered = signal.medfilt(gr_infected, window_size)
+df['gr_infected_filtered'] = gr_infected_filtered
 
-var_gr_infected_7 = np.var(gr_infected_7)
-var_gr_infected_7_filtered = np.var(gr_infected_7_filtered)
-var_epsilon = (2 * window_size) * (var_gr_infected_7 - var_gr_infected_7_filtered) / (2 * window_size - math.pi) #0.012482567657577066
+var_gr_infected = np.var(gr_infected)
+var_gr_infected_filtered = np.var(gr_infected_filtered)
+var_epsilon = (2 * window_size) * (var_gr_infected - var_gr_infected_filtered) / (2 * window_size - math.pi) #0.012482567657577066
 std_epsilon = math.sqrt(var_epsilon)
 
 # Save final dataset
@@ -210,13 +208,14 @@ def addNoise(cs, sigma):
     return ns
 
 
-def calcP(P, A, Q):
+def calcP_prior(P, A, Q):
     '''
     P: old process covariance matrix
     A: state transition matrix
     Q: process noise(perturbation) covariance matrix
     Pn: new process covariance matrix 
     '''
+    #pdb.set_trace()
     row, col = np.shape(A)
     Pn = np.zeros((row, col))
     PAt = np.matmul(P, np.transpose(A))
@@ -256,26 +255,43 @@ def calcEst(mdl, mes, K, C):
     xh = mdl + Kz
     return xh
 
+def calcP_posterior(P, K, C):
+    '''
+    P: old process covariance matrix
+    C: transformation matrix to map state parameters to measurement domain
+    Pn: new process covariance matrix 
+    '''
+    row, col = np.shape(P)
+    Pn = np.zeros((row, col))
+    CP = np.matmul(C, P)
+    Pn = P - np.matmul(K, CP)
+    return Pn
+
 # Generate state equation to obtain the state transition matrix A
 #pdb.set_trace()
 
-R_measured = gr2R(gr_infected_7) #Measurement
+R_measured = gr2R(gr_infected) # Measurement of R TODO does this include the noise??
 N = R_measured.shape[0] #TODO initialize it very early 
 
-R_estimate = []
+R_estimate = [] # R
+mu_gr_infected_0, sigma_gr_infected_0 = 0.25, 0.15
+var_gr_infected_0 = sigma_gr_infected_0
+gr_infected_0 = np.random.normal(mu_gr_infected_0, sigma_gr_infected_0)
+R_0 = gr2R(gr_infected_0)
 R_t = R_0
 std_eta = 0.5 * std_epsilon
+var_eta = std_eta ** 2
 
 for _ in range(N):
     R_t = addNoise(R_t, std_eta)
     R_estimate.append(R_t)
 
-pdb.set_trace()
+#pdb.set_trace()
 plt.figure(figsize=(16, 8))        
 plt_R = plt.subplot(2, 2, 1)
 plt_R.plot(R_measured, label = "Measurement")
 plt_R.plot(R_estimate, label = "Estimate")
-#plt_R.plot(R_optimal, label = "Optimal")
+#plt_R.plot(R_optimal, label = "Optimal") # Optimal estimation, output of Kalman filter
 
 plt.ylabel("R")
 plt.xlabel("Number of days") # TODO or date?
@@ -283,22 +299,27 @@ plt.legend()
 plt.savefig('filter.png')
 #plt.title("2-D Kalman Filter with eta = {} and sigma = {}".format(var_eta, var_gamma))
 #R_t = #Estimate
-#Optimal
-#R_t = R_t + addNoise
-'''
-A = 1
-B = 0
-Q = 
-P = 
-P = calcP(P, A, Q)
-C = 
-R =
-K = calcK(P, C, R)
-mdl = 
-mes = 
-xhat = calcEst(mdl, mes, K, C)
-#calcP()
-'''
+#Optimalcd 
+
+A = np.array([[1]]) # also referrred as F
+C = np.array([[1]]) # also referred as H
+#B = 0
+Q = var_eta
+R = var_epsilon
+#pdb.set_trace()
+var_R_0 = (1 / gamma) * var_gr_infected_0
+P = np.array([[var_R_0]])
+
+R_optimal = []
+for i in range(N):
+    P = calcP_prior(P, A, Q)
+    K = calcK(P, C, R)
+    mdl = R_estimate[i]
+    mes = R_measured[i]
+    xhat = calcEst(mdl, mes, K, C)
+    R_optimal.append(xhat)
+    P = calcP_posterior(P, K, C)
+
 #2.1.5
 
 #2.2
