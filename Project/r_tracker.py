@@ -122,8 +122,6 @@ gr_infected = np.array(df['gr_infected_{}'.format(days_infectious)])
 df.set_index(['Date'],inplace=True)
 
 plt.plot(df.index, gr_infected, label = "7 Day serial interval") #TODO date format, 4-day growth rate
-#myFmt = DateFormatter("%d")
-#ax.xaxis.set_major_formatter(myFmt)
 plt.ylabel("Growth rate of infected individuals, gr(I)")
 plt.xlabel("Date (format YYYY-MM)")
 plt.legend()
@@ -139,9 +137,18 @@ def median_filter(signal, window_size, stride = 1):
     return filtered_signal
 
 window_size = 5 #TODO tune this parameter
+gr_infected_filtered = median_filter(gr_infected, window_size)
+
+plt.figure(figsize=(16, 8))  
+plt.plot(df.index, gr_infected, label = "Original signal") 
+plt.plot(df.index, gr_infected_filtered, label = "Median filtered signal") 
+plt.ylabel("Growth rate of infected individuals, gr(I)")
+plt.xlabel("Date (format YYYY-MM)")
+plt.legend()
+plt.savefig('median_filter.png')
+
 #from scipy import signal
 #gr_infected_filtered_scipy = signal.medfilt(gr_infected, window_size)
-gr_infected_filtered = median_filter(gr_infected, window_size)
 #np.linalg.norm(gr_infected_filtered_scipy - gr_infected_filtered)
 
 df['gr_infected_filtered'] = gr_infected_filtered
@@ -236,9 +243,11 @@ def R2gr(R):
     gr_infected = gamma * (R - 1)
     return gr_infected
 
-R_measured = gr2R(gr_infected) # Measurement of R
-#R_measured_filtered = gr2R(gr_infected_filtered) # Measurement of R
-N = R_measured.shape[0] #TODO initialize it very early 
+# 2.1.4 
+#R_measured = gr2R(gr_infected) 
+# 2.1.5 <-- use this for smoother result
+R_measured = gr2R(gr_infected_filtered)
+N = R_measured.shape[0] 
 
 mu_gr_infected_0, sigma_gr_infected_0 = 0.25, 0.15
 var_gr_infected_0 = sigma_gr_infected_0 ** 2
@@ -274,7 +283,9 @@ P = np.array([[var_R_0]]) # TODO Or should this be var_eta? var_R_0 = 0.1575, va
 
 R_measured = R_measured[:, np.newaxis]
 R_optimal = []
+kalman_gain = []
 
+# Main code -- Kalman filter
 xhat = [[R_0]]
 for t in range(N):
     # Kalman prediction stage
@@ -283,17 +294,25 @@ for t in range(N):
 
     # Kalman update stage
     K = calcK(P, C, R)
+    kalman_gain.append(np.diagonal(K))
     xhat = calcEst(xhat, R_measured[t], K, C)
     R_optimal.append(xhat)
     P = calcP_posterior(P, K, C)
 
 R_optimal = np.squeeze(np.array(R_optimal))
+kalman_gain = np.array(kalman_gain)
 
 plt.plot(df.index, R_optimal, label = "Optimal / Kalman filtered")
 plt.legend()
-plt.savefig('filter.png')
+plt.savefig('kalman_filter_smooth.png')
 
-#2.1.5
+#2.1.6
+
+plt.figure(figsize=(16, 8))   
+plt.plot(df.index, kalman_gain) 
+plt.xlabel("Date (format YYYY-MM)")
+plt.ylabel("Kalman Gain Coefficient")
+plt.savefig('kalman_gain.png')
 
 #2.2
 future_N = 7 
