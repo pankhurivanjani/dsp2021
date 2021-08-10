@@ -1,23 +1,15 @@
-import os
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import math
 import pdb
+import os
+import sys
 
 #2.1
 #2.1.2
 days_infectious = 7
 gamma = 1 / float(days_infectious) #transition rate from infected to recovered
-
-def gr2R(gr_infected):
-    #R = 1 + (1 / gamma) * gr_infected
-    R = 1 + days_infectious * gr_infected
-    return R
-
-def R2gr(R):
-    gr_infected = gamma * (R - 1)
-    return gr_infected
 
 #TODO drop country column from everywhere
 random_seed = 12345
@@ -124,36 +116,50 @@ del df['days_since_min_cases']
 # Save final dataset
 df.to_csv('{}/DE_Dataset.csv'.format(output_folder), index = False)
 
-#2.1.3
-from scipy import signal, misc
-import math
+plt.figure(figsize=(16, 8))  
+gr_infected = np.array(df['gr_infected_{}'.format(days_infectious)])      
+df.set_index(['Date'],inplace=True)
 
-window_size = 3 #TODO tune this parameter
-gr_infected = np.array(df['gr_infected_7'])
-gr_infected_filtered = signal.medfilt(gr_infected, window_size)
+plt.plot(df.index, gr_infected, label = "7 Day serial interval") #TODO date format, 4-day growth rate
+plt.ylabel("Growth rate of infected individuals")
+plt.xlabel("Date")
+plt.legend()
+plt.savefig('gr.png')
+
+#2.1.3
+def median_filter(signal, window_size, stride = 1):
+    nrows = ((signal.size - window_size)//stride) + 1
+    n = signal.strides[0]
+    strided_2d_signal = np.lib.stride_tricks.as_strided(signal, shape = (nrows, window_size), strides=(stride * n, n))
+    filtered_signal = np.median(strided_2d_signal, axis=1)
+    filtered_signal = np.concatenate([[signal[0]], [signal[1]], filtered_signal, [signal[-2]], [signal[-1]]])
+    return filtered_signal
+
+window_size = 5 #TODO tune this parameter
+#from scipy import signal
+#gr_infected_filtered_scipy = signal.medfilt(gr_infected, window_size)
+gr_infected_filtered = median_filter(gr_infected, window_size)
+#np.linalg.norm(gr_infected_filtered_scipy - gr_infected_filtered)
+
 df['gr_infected_filtered'] = gr_infected_filtered
 
 var_gr_infected = np.var(gr_infected)
 var_gr_infected_filtered = np.var(gr_infected_filtered)
-var_epsilon = (2 * window_size) * (var_gr_infected - var_gr_infected_filtered) / (2 * window_size - math.pi) #0.012482567657577066
+var_epsilon = (2 * window_size) * (var_gr_infected - var_gr_infected_filtered) / (2 * window_size - math.pi) 
 std_epsilon = math.sqrt(var_epsilon)
 
 # Save final dataset
 df.to_csv('{}/DE_Dataset.csv'.format(output_folder), index = False)
 
 #2.1.4
-#pdb.set_trace()
 #plot time-series of R from the beginning to end date
-#computed R - measurement, estimated R- prediction, should overlap
-# x axis - R vs. date, possibly jump in data if reporting/testing changes
-plt.rcParams.update({'font.size': 15})
+#computed R - measurement, estimated R- prediction,
 
 def addNoise(cs, sigma):
     '''
     sigma: standard deviation of noise distribution
     ns: noisy output signal
     '''
-    #pdb.set_trace()
     rn = np.random.normal(0.0, sigma)
     ns = cs + rn
     return ns
@@ -166,7 +172,6 @@ def calcP_prior(P, A, Q):
     Q: process noise(perturbation) covariance matrix
     Pn: new process covariance matrix 
     '''
-    #pdb.set_trace()
     row, col = np.shape(A)
     Pn = np.zeros((row, col))
     PAt = np.matmul(P, np.transpose(A))
@@ -209,6 +214,7 @@ def calcEst(mdl, mes, K, C):
 def calcP_posterior(P, K, C):
     '''
     P: old process covariance matrix
+    K: 
     C: transformation matrix to map state parameters to measurement domain
     Pn: new process covariance matrix 
     '''
@@ -218,65 +224,75 @@ def calcP_posterior(P, K, C):
     Pn = P - np.matmul(K, CP)
     return Pn
 
-# Generate state equation to obtain the state transition matrix A
-#pdb.set_trace()
+def gr2R(gr_infected):
+    #R = 1 + (1 / gamma) * gr_infected
+    R = 1 + days_infectious * gr_infected
+    return R
 
-R_measured = gr2R(gr_infected) # Measurement of R TODO does this include the noise??
+def R2gr(R):
+    gr_infected = gamma * (R - 1)
+    return gr_infected
+
+R_measured = gr2R(gr_infected) # Measurement of R
+#R_measured_filtered = gr2R(gr_infected_filtered) # Measurement of R
 N = R_measured.shape[0] #TODO initialize it very early 
 
-R_estimate = [] # R
 mu_gr_infected_0, sigma_gr_infected_0 = 0.25, 0.15
-var_gr_infected_0 = sigma_gr_infected_0
+var_gr_infected_0 = sigma_gr_infected_0 ** 2
+#The initial growth rate of the infected individuals can be assumed to be drawn from a distribution of N(0.25, 0.15^2)
 gr_infected_0 = np.random.normal(mu_gr_infected_0, sigma_gr_infected_0)
 R_0 = gr2R(gr_infected_0)
-R_t = R_0
+
 std_eta = 0.5 * std_epsilon
 var_eta = std_eta ** 2
 
+R_model = [] 
+R_t = R_0
 for _ in range(N):
     R_t = addNoise(R_t, std_eta)
-    R_estimate.append(R_t)
-R_estimate = np.array(R_estimate)
-#pdb.set_trace()
+    R_model.append(R_t)
+R_model = np.array(R_model)
+
 plt.figure(figsize=(16, 8))        
-#plt_R = plt.subplot(2, 2, 1)
-plt.plot(R_measured, label = "Measurement")
-plt.plot(R_estimate, label = "Estimate")
-#plt_R.plot(R_optimal, label = "Optimal") # Optimal estimation, output of Kalman filter
+plt.plot(df.index, R_measured, label = "Measurement")
+plt.plot(df.index, R_model, label = "Ground truth / Model")
+plt.ylim([0, 9])
+plt.ylabel("R") # Effective or basic?
+plt.xlabel("Date") 
 
-plt.ylabel("R")
-plt.xlabel("Number of days") # TODO or date?
-
-#plt.title("2-D Kalman Filter with eta = {} and sigma = {}".format(var_eta, var_gamma))
-#Optimalcd 
 # TODO Kalman init function
-A = np.array([[1]]) # also referrred as F
-C = np.array([[1]]) # also referred as H
-Q =  np.array([[var_eta]])
-R =  np.array([[var_epsilon]])
-#pdb.set_trace()
+A = np.array([[1]]) # state transition matrix, also denoted as F
+C = np.array([[1]]) # measurement matrix, also denoted as H
+Q = np.array([[var_eta]]) # process noise covariance
+R = np.array([[var_epsilon]]) # measurement noise covariance
+
 var_R_0 = (1 / gamma) * var_gr_infected_0
-P = np.array([[var_R_0]])
-R_estimate = R_estimate[:, np.newaxis]
+P = np.array([[var_R_0]]) # TODO Or should this be var_eta? var_R_0 = 0.1575, var_eta = 0.0031, bot give reasonable result
+
 R_measured = R_measured[:, np.newaxis]
 R_optimal = []
 
-for i in range(N):
+xhat = [[R_0]]
+for t in range(N):
+    # Kalman prediction stage
+    xhat = np.matmul(A, xhat)
     P = calcP_prior(P, A, Q)
+
+    # Kalman update stage
     K = calcK(P, C, R)
-    xhat = calcEst(R_estimate[i], R_measured[i], K, C)
+    xhat = calcEst(xhat, R_measured[t], K, C)
     R_optimal.append(xhat)
     P = calcP_posterior(P, K, C)
 
 R_optimal = np.squeeze(np.array(R_optimal))
 
-#2.1.5
-plt.plot(R_optimal, label = "Optimal")
+plt.plot(df.index, R_optimal, label = "Optimal / Kalman filtered")
 plt.legend()
 plt.savefig('filter.png')
 
+#2.1.5
 #TODO plot kalman gain coefficients for varying noises
 #2.2
-# TODO take into account Germa population
+# TODO take into account German population
 
 #TODO confidence intervals
