@@ -5,6 +5,7 @@ import math
 import pdb
 import os
 import sys
+from matplotlib.dates import DateFormatter
 
 #2.1
 #2.1.2
@@ -121,8 +122,10 @@ gr_infected = np.array(df['gr_infected_{}'.format(days_infectious)])
 df.set_index(['Date'],inplace=True)
 
 plt.plot(df.index, gr_infected, label = "7 Day serial interval") #TODO date format, 4-day growth rate
-plt.ylabel("Growth rate of infected individuals")
-plt.xlabel("Date")
+#myFmt = DateFormatter("%d")
+#ax.xaxis.set_major_formatter(myFmt)
+plt.ylabel("Growth rate of infected individuals, gr(I)")
+plt.xlabel("Date (format YYYY-MM)")
 plt.legend()
 plt.savefig('gr.png')
 
@@ -257,8 +260,8 @@ plt.figure(figsize=(16, 8))
 plt.plot(df.index, R_measured, label = "Measurement")
 plt.plot(df.index, R_model, label = "Ground truth / Model")
 plt.ylim([0, 9])
-plt.ylabel("R") # Effective or basic?
-plt.xlabel("Date") 
+plt.ylabel("Effective Reproduction Number (R)") # Effective or basic?
+plt.xlabel("Date (format YYYY-MM)") 
 
 # TODO Kalman init function
 A = np.array([[1]]) # state transition matrix, also denoted as F
@@ -291,19 +294,48 @@ plt.legend()
 plt.savefig('filter.png')
 
 #2.1.5
+
+#2.2
+future_N = 7 
+
+# Predict R for future days using linear regression
+R_optimal_future = []
+R_t_optimal = R_optimal[-1]
+for _ in range(future_N):
+    # Append new date to dataframe
+    last_date = df.index[-1] + pd.Timedelta(days=1)
+    df.loc[last_date] = 0
+    # Append R estimated with Kalman filter 
+    R_t_optimal = addNoise(R_t_optimal, std_eta)
+    R_optimal_future.append(R_t_optimal)
+R_optimal_future = np.array(R_optimal_future)
+R_optimal = np.concatenate([R_optimal, R_optimal_future])
+
+# Fit linear regression model on observed data
 X = np.array([i for i in range(N)])
 Y = gr2R(gr_infected)
 A = np.vstack([X, np.ones(len(X))]).T      
 m, c = np.linalg.lstsq(A, Y, rcond=None)[0] 
 
+# Predict R for future days using linear regression
+X_linear_regress = np.arange(N + future_N)
+R_linear_regress = m * X_linear_regress + c
+
+vis_N = 90 # Visualize last 3 months 
 plt.figure(figsize=(16, 8))   
-plt.scatter(X,Y)
-vec = np.arange(500)
-plt.plot(vec, m * vec + c)
-plt.savefig('linreg.png')
+
+plt.plot(df.index[-vis_N:], R_optimal[-vis_N:], label = 'Kalman') 
+plt.scatter(df.index[-future_N:], R_optimal[-future_N:], color = 'black')
+
+plt.plot(df.index[-vis_N:], R_linear_regress[-vis_N:], label = 'Linear') 
+plt.scatter(df.index[-future_N:], R_linear_regress[-future_N:], color = 'red')
+
+plt.legend()
+plt.xlabel("Date (format YYYY-MM)")
+plt.ylabel("Effective Reproduction Number (R)")
+plt.savefig('future_R.png')
 
 #TODO plot kalman gain coefficients for varying noises
-#2.2
 # TODO take into account German population
 
 #TODO confidence intervals
