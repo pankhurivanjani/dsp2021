@@ -360,3 +360,8 @@ plt.legend()
 plt.xlabel("Date (format YYYY-MM)")
 plt.ylabel("Effective Reproduction Number (R)")
 plt.savefig('future_R.png')
+
+# Eestimate basic reproduction number by the average value of Rt in the first week of the epidemic
+R_basic = np.mean(R_optimal[:7])
+print('Basic reproduction number: {}'.format(R_basic))  #2.41
+
