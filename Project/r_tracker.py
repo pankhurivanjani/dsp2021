@@ -279,14 +279,16 @@ Q = np.array([[var_eta]]) # process noise covariance
 R = np.array([[var_epsilon]]) # measurement noise covariance
 
 var_R_0 = (1 / gamma) * var_gr_infected_0
-P = np.array([[var_R_0]]) # TODO Or should this be var_eta? var_R_0 = 0.1575, var_eta = 0.0031, bot give reasonable result
+P = np.array([[var_R_0]]) 
 
 R_measured = R_measured[:, np.newaxis]
 R_optimal = []
+R_optimal_var = []
 kalman_gain = []
 
 # Main code -- Kalman filter
 xhat = [[R_0]]
+
 for t in range(N):
     # Kalman prediction stage
     xhat = np.matmul(A, xhat)
@@ -298,13 +300,18 @@ for t in range(N):
     xhat = calcEst(xhat, R_measured[t], K, C)
     R_optimal.append(xhat)
     P = calcP_posterior(P, K, C)
-
+    R_optimal_var.append(P)
+    
 R_optimal = np.squeeze(np.array(R_optimal))
+R_optimal_var = np.squeeze(np.array(R_optimal_var))
 kalman_gain = np.array(kalman_gain)
 
+ci = 2 * np.sqrt(R_optimal_var) # 95% confidence interval = 2 * sigma
 plt.plot(df.index, R_optimal, label = "Optimal / Kalman filtered")
+plt.fill_between(df.index, (R_optimal-ci), (R_optimal+ci), color='green', alpha=.2)
 plt.legend()
 plt.savefig('kalman_filter_smooth.png')
+
 
 #2.1.6
 
@@ -353,8 +360,3 @@ plt.legend()
 plt.xlabel("Date (format YYYY-MM)")
 plt.ylabel("Effective Reproduction Number (R)")
 plt.savefig('future_R.png')
-
-#TODO plot kalman gain coefficients for varying noises
-# TODO take into account German population
-
-#TODO confidence intervals
