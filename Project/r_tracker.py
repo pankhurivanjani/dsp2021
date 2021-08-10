@@ -291,6 +291,65 @@ plt.legend()
 plt.savefig('filter.png')
 
 #2.1.5
+#pdb.set_trace()
+'''
+x = np.array([i for i in range(N)])
+#y = np.squeeze(R_measured)
+y = gr2R(gr_infected_filtered)
+m = (len(x) * np.sum(x*y) - np.sum(x) * np.sum(y)) / (len(x)*np.sum(x*x) - np.sum(x) ** 2)
+b = (np.sum(y) - m *np.sum(x)) / len(x)
+
+#def predict(m, b, x):
+    #return m*x + b
+
+plt.figure(figsize=(16, 8))   
+plt.scatter(x,y)
+vec = np.arange(500)
+plt.plot(vec, m * vec + b)
+plt.savefig('linreg.png')
+'''
+
+#X = np.array([[0, 0],[0, 1], [1, 0], [1, 1]])
+#Y = np.array([0, 1, 1, 0]) #XOR
+X = np.array([i for i in range(N)])#[:, np.newaxis]
+#y = np.squeeze(R_measured)
+Y = gr2R(gr_infected)#[:, np.newaxis]
+
+#Y = np.array([0, 0, 0, 1]) #AND
+#Y = np.array([0, 1, 1, 1])# OR
+'''
+np.random.seed(4)
+w = np.random.rand(1)
+c = np.random.rand(1)
+
+print(w)
+print(c)
+pdb.set_trace()
+for i in range(100):
+    
+    #f_w = 0.5 * (np.linalg.norm(X * w + c - Y) ** 2)
+    #f_d_w = np.dot(X * w + c - Y, X)
+    #f_d_c = np.dot(X * w + c - Y, np.ones(X.size))
+    f_w = 0.5 * (np.linalg.norm(np.dot(X, w) + c - Y) ** 2)
+    f_d_w = np.dot(np.dot(X, w) + c - Y, X)
+    f_d_c = np.dot(np.dot(X, w) + c - Y, np.ones(X.size))
+    #print(f_w)
+    #print(f_d_w)
+    #print(f_d_c)
+    w = w - 0.01 * f_d_w
+    c = c - 0.01 * f_d_c
+'''
+import scipy 
+#w, c, _, _, _  = scipy.stats.linregress(X, Y)
+A = np.vstack([X, np.ones(len(X))]).T      
+w, c = np.linalg.lstsq(A, Y, rcond=None)[0] 
+plt.figure(figsize=(16, 8))   
+plt.scatter(X,Y)
+vec = np.arange(500)
+pdb.set_trace()
+plt.plot(vec, w * vec + c)
+plt.savefig('linreg_new.png')
+
 #TODO plot kalman gain coefficients for varying noises
 #2.2
 # TODO take into account German population
